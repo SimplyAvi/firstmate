@@ -3823,6 +3823,18 @@ if (!customHeld.eligible || customHeld.eligibleSeqs.join(",") !== "2" ||
 }
 delete process.env.FM_CLASSIFY_RESOLVE_VERB;
 delete process.env.FM_CLASSIFY_CAPTAIN_HELD_VERB;
+
+process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES = "secret-";
+writeFileSync(
+  `${state}/task-a.status`,
+  "needs-decision [key=pending-reply-x]: choose destructive cleanup\nworking: routine follow-up\n",
+);
+const customReservedPrefixes = scopeForUnreadWake(state, false);
+if (!customReservedPrefixes.eligible || customReservedPrefixes.eligibleSeqs.join(",") !== "2" ||
+  customReservedPrefixes.needsDecisionKeys.join(",") !== "fm-window") {
+  throw new Error(`configured reserved prefixes lost an open stale decision: ${JSON.stringify(customReservedPrefixes)}`);
+}
+delete process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES;
 writeFileSync(`${state}/task-a.status`, "working: routine work\n");
 
 writeFileSync(

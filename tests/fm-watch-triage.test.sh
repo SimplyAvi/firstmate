@@ -1562,6 +1562,39 @@ test_needs_decision_reconciliation_required_still_marked() {
   pass "a reconciliation-required needs-decision row's queued payload is still marked needs-decision:"
 }
 
+test_pending_reply_escalation_signal_payload_marked_for_branch_exclusion() {
+  local dir state fakebin out status_file pid corr
+  dir=$(make_case pending-reply-escalation-payload); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  status_file="$state/task.status"
+  corr=0123456789abcdef
+  printf 'blocked [key=pending-reply-%s]: pending-reply-missed: task=task pending-reply-id=%s request=finish report\n' \
+    "$corr" "$corr" > "$status_file"
+  watch_bg "$state" "$fakebin" "$out"
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "watcher did not exit for a pending-reply escalation"
+  grep -F "$(printf 'signal\ttask.status\tneeds-decision:')" "$state/.wake-queue" >/dev/null \
+    || fail "a pending-reply escalation was not payload-marked for branch exclusion: $(cat "$state/.wake-queue")"
+  pass "a pending-reply second-mate escalation is marked for main-only routing"
+}
+
+test_ordinary_blocked_signal_payload_remains_branch_eligible() {
+  local dir state fakebin out status_file pid
+  dir=$(make_case ordinary-blocked-payload); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  status_file="$state/task.status"
+  printf 'blocked [key=dependency]: waiting for an upstream release\n' > "$status_file"
+  watch_bg "$state" "$fakebin" "$out"
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "watcher did not exit for an ordinary blocked event"
+  grep -F "$(printf 'signal\ttask.status\tsignal:')" "$state/.wake-queue" >/dev/null \
+    || fail "an ordinary blocked event lost branch-eligible routing: $(cat "$state/.wake-queue")"
+  if grep -F "$(printf 'signal\ttask.status\tneeds-decision:')" "$state/.wake-queue" >/dev/null; then
+    fail "an ordinary blocked event was marked as a second-mate escalation"
+  fi
+  pass "an ordinary blocked event remains branch-eligible"
+}
+
 # A routine (non-needs-decision) captain-relevant event must keep its ordinary
 # payload: only a genuine needs-decision gets the exclusion marker.
 test_routine_signal_payload_not_marked_needs_decision() {
@@ -4092,6 +4125,8 @@ test_self_announced_close_does_not_rewake_but_next_note_does
 test_actionable_signal_surfaced
 test_needs_decision_signal_payload_marked_for_branch_exclusion
 test_needs_decision_reconciliation_required_still_marked
+test_pending_reply_escalation_signal_payload_marked_for_branch_exclusion
+test_ordinary_blocked_signal_payload_remains_branch_eligible
 test_routine_signal_payload_not_marked_needs_decision
 test_actionable_signal_survives_a_later_routine_append
 test_release_completion_survives_a_later_routine_append

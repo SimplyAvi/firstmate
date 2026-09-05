@@ -824,7 +824,7 @@ test_pi_open_decision_stale_stays_on_main() {
   install_pi_watch_extension_fixture "$repo"
   plugin="$repo/.pi/extensions/fm-primary-pi-watch.ts"
   printf 'project=%s/projects/approved\nwindow=fm-window\n' "$home" > "$home/state/task-a.meta"
-  printf 'needs-decision [key=cleanup]: choose destructive cleanup\nworking: routine follow-up\n' > "$home/state/task-a.status"
+  printf 'needs-decision [key=pending-reply-x]: choose destructive cleanup\nworking: routine follow-up\n' > "$home/state/task-a.status"
   cat > "$repo/bin/fm-watch-arm.sh" <<'SH'
 #!/usr/bin/env bash
 if [ "${1:-}" = --handling-delivered ]; then exit 0; fi
@@ -873,10 +873,11 @@ const pi = {
     prompt = message;
   },
 };
+process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES = "secret-";
 writeFileSync(`${process.env.FM_HOME}/state/.lock`, `${process.pid}\n`);
 writeFileSync(
   `${process.env.FM_HOME}/state/.wake-queue`,
-  "1\t1\tstale\tfm-window\tstale: fm-window (captain-held)\n" +
+  "1\t1\tstale\tfm-window\tstale: fm-window (routine follow-up)\n" +
     "1\t2\tsignal\ttask-a.status\tsignal: routine follow-up\n",
 );
 const mod = await import(pathToFileURL(process.env.PLUGIN).href);
@@ -901,10 +902,10 @@ EOF
   pass "an open-decision stale trigger reaches main even with an unrelated eligible row"
 }
 
-# A routine row can remain unread when the same status file raises a decision.
-# The complete triggering batch goes directly to main without waiting for a
-# supervision turn.
-test_pi_same_key_mixed_signal_routes_whole_batch_to_main() {
+# A routine row can remain unread when the same status file raises a second-mate
+# pending-reply escalation. The complete triggering batch goes directly to main
+# without waiting for a supervision turn.
+test_pi_pending_reply_mixed_signal_routes_whole_batch_to_main() {
   local repo home plugin log stop out status
   repo="$TMP_ROOT/pi-mixed-signal-root"
   home="$TMP_ROOT/pi-mixed-signal-home"
@@ -914,6 +915,8 @@ test_pi_same_key_mixed_signal_routes_whole_batch_to_main() {
   install_pi_watch_extension_fixture "$repo"
   plugin="$repo/.pi/extensions/fm-primary-pi-watch.ts"
   printf 'project=%s/projects/approved\nwindow=fm-a\n' "$home" > "$home/state/task-a.meta"
+  printf 'blocked [key=pending-reply-0123456789abcdef]: pending-reply-missed: task=task-a pending-reply-id=0123456789abcdef request=finish report\n' \
+    > "$home/state/task-a.status"
   cat > "$repo/bin/fm-watch-arm.sh" <<'SH'
 #!/usr/bin/env bash
 if [ "${1:-}" = --handling-delivered ]; then exit 0; fi
@@ -978,19 +981,19 @@ for (let i = 0; i < 250 && !prompt; i += 1) {
   await new Promise((resolve) => setTimeout(resolve, 10));
 }
 if (offers.length !== 1 || offers[0].eligible !== false) {
-  throw new Error(`a mixed needs-decision batch was offered to the branch: ${JSON.stringify(offers)}`);
+  throw new Error(`a mixed pending-reply escalation batch was offered to the branch: ${JSON.stringify(offers)}`);
 }
 if (!prompt.includes("FIRSTMATE WATCHER WAKE: signal: task-a.status")) {
-  throw new Error(`the mixed needs-decision batch did not wake main: ${prompt}`);
+  throw new Error(`the mixed pending-reply escalation batch did not wake main: ${prompt}`);
 }
 writeFileSync(process.env.FM_STOP_FILE, "stop\n");
 process.exit(0);
 EOF
   )
   status=$?
-  expect_code 0 "$status" "a mixed needs-decision batch must route wholly to main: $out"
-  [ -z "$out" ] || fail "Pi mixed-signal test printed output: $out"
-  pass "a mixed needs-decision batch routes wholly to main"
+  expect_code 0 "$status" "a mixed pending-reply escalation batch must route wholly to main: $out"
+  [ -z "$out" ] || fail "Pi pending-reply mixed-signal test printed output: $out"
+  pass "a mixed pending-reply escalation batch routes wholly to main"
 }
 
 # The captain's accepted rule names ONE coalesced trigger batch, not only a
@@ -3984,7 +3987,7 @@ test_pi_branch_offer_flags_heartbeat
 test_pi_heartbeat_is_not_ridden_into_main_by_a_co_present_check
 test_pi_main_only_check_classes_stay_on_main
 test_pi_open_decision_stale_stays_on_main
-test_pi_same_key_mixed_signal_routes_whole_batch_to_main
+test_pi_pending_reply_mixed_signal_routes_whole_batch_to_main
 test_pi_distinct_files_mixed_batch_routes_whole_batch_to_main
 test_pi_heartbeat_is_not_ridden_into_main_by_a_co_present_needs_decision
 test_pi_heartbeat_restoration_failure_stays_on_main

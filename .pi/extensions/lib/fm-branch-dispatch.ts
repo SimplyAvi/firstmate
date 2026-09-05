@@ -144,7 +144,12 @@ function statusLineNote(line: string): string {
   return match ? note.slice(match[0].length).trimStart() : note;
 }
 
-function hasOpenNeedsDecision(lines: readonly string[], resolveVerb: string, heldVerb: string): boolean {
+function hasOpenNeedsDecision(
+  lines: readonly string[],
+  resolveVerb: string,
+  heldVerb: string,
+  reservedPrefixes: readonly string[],
+): boolean {
   const open = new Map<string, "needs-decision" | "blocked">();
   for (const line of lines) {
     const verb = statusLineVerb(line);
@@ -152,7 +157,8 @@ function hasOpenNeedsDecision(lines: readonly string[], resolveVerb: string, hel
     const key = decisionKey(line);
     if (!key) continue;
     const note = statusLineNote(line);
-    if (key.startsWith("pending-reply-") && !/^pending-reply-.*:/.test(note)) continue;
+    const reservedPrefix = reservedPrefixes.find((prefix) => key.startsWith(prefix));
+    if (reservedPrefix && !(note.startsWith(reservedPrefix) && note.slice(reservedPrefix.length).includes(":"))) continue;
     if (verb === "needs-decision" || verb === "blocked") open.set(key, verb);
     else open.delete(key);
   }
@@ -242,7 +248,10 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
           }
           const resolveVerb = process.env.FM_CLASSIFY_RESOLVE_VERB || "resolved";
           const heldVerb = process.env.FM_CLASSIFY_CAPTAIN_HELD_VERB || "captain-held";
-          if (hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb) ||
+          const reservedPrefixes = (process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES || "pending-reply-")
+            .split(/\s+/)
+            .filter(Boolean);
+          if (hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb, reservedPrefixes) ||
             statusLineVerb(statusLines.at(-1) ?? "") === heldVerb) {
             needsDecisionKeys.push(key);
             continue;

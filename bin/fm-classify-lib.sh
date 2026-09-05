@@ -418,6 +418,14 @@ _fm_decision_key_transition_allowed() {  # <key> <note>
   return 0
 }
 
+_fm_is_pending_reply_escalation() {  # <key> <note>
+  case "$1" in pending-reply-*) ;; *) return 1 ;; esac
+  case "$2" in
+    pending-reply-missed:*|pending-reply-delivery-unknown:*|pending-reply-recovery-delivery-failed:*|pending-reply-recovery-delivery-unknown:*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 _fm_decision_fold_line() {  # <open-set> <status-line> <resolve-verb> <held-verb>
   local open=$1 line=$2 resolve=$3 held=$4 verb key note
   # Blank-line guard. A `case` glob answers "does this line hold any non-space
@@ -1685,7 +1693,10 @@ EOF
         [ -n "$live_line" ] && [ "$((prefix_lines + line_number))" -eq "$live_line" ] || continue
         [ -n "$events" ] && events="${events} ; "
         events="${events}${line}"
-        [ "$verb" = needs-decision ] && _fm_span_needs_decision=1
+        if [ "$verb" = needs-decision ] || { [ "$verb" = blocked ] &&
+          _fm_is_pending_reply_escalation "$key" "$(status_line_note "$line")"; }; then
+          _fm_span_needs_decision=1
+        fi
         rc=0
         ;;
       *)
