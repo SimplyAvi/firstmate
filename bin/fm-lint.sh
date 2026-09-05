@@ -3,8 +3,8 @@
 #
 # Runs its file set with ShellCheck's default severity, extended analysis,
 # ambient configuration disabled, and one exact ShellCheck version. CI and
-# no-mistakes both invoke this script with no arguments, so the rule set,
-# version, bounded execution, and diagnostics ordering cannot drift.
+# no-mistakes both invoke this script with no arguments, so this owner selects
+# the context-appropriate rule set without duplicating lint configuration.
 # The explicit --fast mode is local-only and disables ShellCheck's extended
 # dataflow analysis while preserving ordinary shell lint checks and source
 # following. CI, main, and merge-base-less runs keep --norc --external-sources
@@ -14,8 +14,8 @@
 # and SC2329, the codes that need library context. Those codes still run in
 # CI over the whole set. Explicit paths keep --external-sources with the
 # selected dataflow mode.
-# Tests stop source analysis at imported production modules because every
-# production shell is already a canonical, source-aware root of this same run.
+# Tests stop source analysis at imported production modules because CI analyzes
+# every production shell separately as a canonical, source-aware root.
 # The default (no explicit-path) path also runs bin/fm-lint-workflows.sh so a
 # malformed GitHub workflow, including a self-broken ci.yml, fails locally
 # before merge instead of only failing to run as CI.

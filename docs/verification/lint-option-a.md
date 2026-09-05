@@ -1,7 +1,6 @@
 # Local ShellCheck option A measurement
 
-The 2026-09-05 lint-cost audit measured the seven roots from the missed-reply
-incident at commit `f09de8a3d3a550b13b4d535346fbc7b9ac0d6c19`:
+The 2026-09-05 lint-cost audit measured the seven roots from the missed-reply incident at commit `f09de8a3d3a550b13b4d535346fbc7b9ac0d6c19`:
 
 ```text
 bin/fm-brief.sh
@@ -13,22 +12,20 @@ tests/fm-classify-corr-token.test.sh
 tests/fm-pending-reply.test.sh
 ```
 
-ShellCheck was the repository-pinned 0.11.0 Darwin arm64 build. The baseline was
-one source-aware invocation containing all seven roots. Option A used one
-process per root, omitted `--external-sources`, retained extended dataflow, and
-applied the local cross-file exclusion list. Both variants were measured in the
-same quiet-host window:
+ShellCheck was the repository-pinned 0.11.0 Darwin arm64 build.
+The baseline was one source-aware invocation containing all seven roots.
+Option A used one process per root, omitted `--external-sources`, retained extended dataflow, and applied the local cross-file exclusion list.
+Both variants were measured in the same quiet-host window:
 
 | Variant | User + system CPU | Reduction | Worst-process RSS | Reduction |
 | --- | ---: | ---: | ---: | ---: |
-| source-aware baseline | 140.1 s | — | 8.30 GB | — |
+| source-aware baseline | 140.1 s | n/a | 8.30 GB | n/a |
 | option A, per-root processes | 9.8 s | 93.0% | 0.56 GB | 93.3% |
 
 ## Reproduction
 
-Check out the recorded commit, install the pinned binary with
-`bin/fm-install-shellcheck.sh`, put it first on `PATH`, and run the following on
-macOS. No `--extended-analysis=false` flag is present, so dataflow remains on.
+Check out the recorded commit, install the pinned binary with `bin/fm-install-shellcheck.sh`, put it first on `PATH`, and run the following on macOS.
+No `--extended-analysis=false` flag is present, so dataflow remains on.
 Diagnostics are discarded because only process cost is under measurement.
 
 ```bash
@@ -70,7 +67,5 @@ awk '
 ' .lint-option-a-measurement/option-a.*.time
 ```
 
-CPU and RSS vary with host load, so percentage claims must compare runs from one
-measurement window. When results must be compared across windows, use the
-reported `bytes_allocated` totals as the stable work proxy rather than quoting a
-CPU or RSS ratio.
+CPU and RSS vary with host load, so percentage claims must compare runs from one measurement window.
+When results must be compared across windows, use the reported `bytes_allocated` totals as the stable work proxy rather than quoting a CPU or RSS ratio.
