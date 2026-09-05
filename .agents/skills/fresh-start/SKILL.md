@@ -69,7 +69,7 @@ bin/fm-fleet-snapshot.sh --json
 bin/fm-fleet-view.sh
 ```
 
-The snapshot is observational and its header owns the bounded cross-home collection behavior.
+The snapshot is observational for fleet state, aside from the bounded observational cache refresh documented in its header, which owns the cross-home collection behavior.
 For each local task in the snapshot, use `bin/fm-crew-state.sh <task-id>` when a current state decision matters.
 Read the exact `state/<task-id>.meta` record only as needed to confirm its `kind`, `project`, `home`, `worktree`, backend, endpoint, PR, and report fields.
 For a registered secondmate, read `data/secondmates.md` and the secondmate home summary rather than treating the parent status history as current child state.
