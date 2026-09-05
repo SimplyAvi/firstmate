@@ -3750,18 +3750,19 @@ for (const row of mainOnlyRows) {
 
 // A needs-decision signal row is a main-only class too, marked by payload
 // rather than kind (docs/pi-supervision-branch.md "Autonomy"): it is excluded
-// from eligibleSeqs, named in needsDecisionKeys, and never vetoes an unrelated
-// eligible row sharing the queue.
+// from eligibleSeqs and named in needsDecisionKeys. A later routine row for the
+// same task remains individually claimable, while trigger-key precedence keeps
+// its complete wake on main until the decision row is read.
 writeFileSync(
   `${state}/.wake-queue`,
   [
     "1\t1\tsignal\ttask-a.status\tneeds-decision: task-a.status",
-    "1\t2\tstale\tfm-window\tstale: fm-window",
+    "1\t2\tsignal\ttask-a.status\tsignal: later routine update",
   ].join("\n"),
 );
 const needsDecisionMixed = scopeForUnreadWake(state, false);
 if (!needsDecisionMixed.eligible) {
-  throw new Error(`a needs-decision row must not veto an unrelated eligible row: ${JSON.stringify(needsDecisionMixed)}`);
+  throw new Error(`an unread needs-decision row must not erase a later routine row: ${JSON.stringify(needsDecisionMixed)}`);
 }
 if (needsDecisionMixed.eligibleSeqs.join(",") !== "2") {
   throw new Error(`a needs-decision row must be excluded from eligibleSeqs: ${JSON.stringify(needsDecisionMixed)}`);

@@ -608,8 +608,10 @@ export default function (pi: ExtensionAPI) {
     const scope = scopeForUnreadWake(state, heartbeat);
     // A signal close containing a needs-decision status file, or a stale close
     // for a captain-held task, gets the identical main-only treatment as a
-    // check-kind trigger. Cross-reference only this trigger's keys so independent
-    // unread scans and heartbeat handling remain unchanged.
+    // check-kind trigger. The cross-reference deliberately includes every
+    // unread decision row: until that row is read, a later signal or stale
+    // trigger for the same task stays on main. Other tasks and heartbeat
+    // handling remain independent.
     const triggerKeys = /^signal:/.test(message)
       ? message
         .slice("signal:".length)
