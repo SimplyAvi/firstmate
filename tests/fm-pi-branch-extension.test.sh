@@ -3715,7 +3715,7 @@ test_branch_dispatch_classifies_main_only_rows_and_writes_the_eligible_snapshot(
     node --input-type=module > "$TMP_ROOT/node-output" 2>&1 <<'EOF'
 import { pathToFileURL } from "node:url";
 import { syncBuiltinESMExports } from "node:module";
-import fs, { readFileSync, writeFileSync } from "node:fs";
+import fs, { readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 
 const originalReadFileSync = fs.readFileSync;
 let countedStatusPath = "";
@@ -3750,25 +3750,29 @@ for (const row of mainOnlyRows) {
 
 // A needs-decision signal row is a main-only class too, marked by payload
 // rather than kind (docs/pi-supervision-branch.md "Autonomy"): it is excluded
-// from eligibleSeqs and named in needsDecisionKeys. A later routine row for the
-// same task remains individually claimable, while trigger-key precedence keeps
-// its complete wake on main until the decision row is read.
+// from eligibleSeqs and named in needsDecisionKeys. A later stale row under the
+// task's window alias remains individually claimable, while task-identity
+// precedence keeps its complete wake on main until the decision row is read.
 writeFileSync(
   `${state}/.wake-queue`,
   [
     "1\t1\tsignal\ttask-a.status\tneeds-decision: task-a.status",
-    "1\t2\tsignal\ttask-a.status\tsignal: later routine update",
+    "1\t2\tstale\tfm-window\tstale: later routine reminder",
   ].join("\n"),
 );
 const needsDecisionMixed = scopeForUnreadWake(state, false);
 if (!needsDecisionMixed.eligible) {
-  throw new Error(`an unread needs-decision row must not erase a later routine row: ${JSON.stringify(needsDecisionMixed)}`);
+  throw new Error(`an unread needs-decision row must not erase a later stale row: ${JSON.stringify(needsDecisionMixed)}`);
 }
 if (needsDecisionMixed.eligibleSeqs.join(",") !== "2") {
   throw new Error(`a needs-decision row must be excluded from eligibleSeqs: ${JSON.stringify(needsDecisionMixed)}`);
 }
 if (needsDecisionMixed.needsDecisionKeys.join(",") !== "task-a.status") {
   throw new Error(`needsDecisionKeys must name the excluded row: ${JSON.stringify(needsDecisionMixed)}`);
+}
+if (needsDecisionMixed.taskByWakeKey["task-a.status"] !== "task-a" ||
+  needsDecisionMixed.taskByWakeKey["fm-window"] !== "task-a") {
+  throw new Error(`status and stale aliases did not resolve to one task: ${JSON.stringify(needsDecisionMixed)}`);
 }
 if (needsDecisionMixed.corrupted) {
   throw new Error(`a needs-decision row must not read as corrupted: ${JSON.stringify(needsDecisionMixed)}`);
@@ -3884,6 +3888,15 @@ if (!customReservedPrefixes.eligible || customReservedPrefixes.eligibleSeqs.join
   throw new Error(`configured reserved prefixes lost an open stale decision: ${JSON.stringify(customReservedPrefixes)}`);
 }
 delete process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES;
+
+writeFileSync(`${state}/symlink-target.status`, "needs-decision: external choice\n");
+unlinkSync(`${state}/task-a.status`);
+symlinkSync(`${state}/symlink-target.status`, `${state}/task-a.status`);
+const symlinkedStatus = scopeForUnreadWake(state, false);
+if (!symlinkedStatus.corrupted || symlinkedStatus.eligible || symlinkedStatus.needsDecisionKeys.length !== 0) {
+  throw new Error(`a symlinked status file influenced stale routing: ${JSON.stringify(symlinkedStatus)}`);
+}
+unlinkSync(`${state}/task-a.status`);
 writeFileSync(`${state}/task-a.status`, "working: routine work\n");
 
 writeFileSync(

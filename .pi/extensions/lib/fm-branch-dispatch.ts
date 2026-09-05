@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { runCommandAsync } from "./fm-async-exec.ts";
 
 // Shared wake-dispatch handshake between the Pi watcher extension (the
@@ -63,6 +63,7 @@ export interface UnreadWakeScope {
    * to main.
    */
   needsDecisionKeys: string[];
+  taskByWakeKey: Record<string, string>;
 }
 
 const EMPTY_SCOPE: UnreadWakeScope = {
@@ -73,6 +74,7 @@ const EMPTY_SCOPE: UnreadWakeScope = {
   eligibleTasks: [],
   corrupted: false,
   needsDecisionKeys: [],
+  taskByWakeKey: {},
 };
 const UNSAFE_SCOPE: UnreadWakeScope = {
   status: "unsafe",
@@ -82,6 +84,7 @@ const UNSAFE_SCOPE: UnreadWakeScope = {
   eligibleTasks: [],
   corrupted: true,
   needsDecisionKeys: [],
+  taskByWakeKey: {},
 };
 
 // scopeForUnreadWake is the single owner of branch-eligibility classification
@@ -154,7 +157,8 @@ const staleDecisionCache = new Map<string, StaleDecisionCacheEntry>();
 
 function statusFileVersion(path: string): string | null {
   try {
-    const stat = statSync(path);
+    const stat = lstatSync(path);
+    if (stat.isSymbolicLink()) throw new Error("status path is a symbolic link");
     return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -209,6 +213,8 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
       if (project) {
         metadata.set(task, project);
         taskByKey.set(task, task);
+        taskByKey.set(`${task}.status`, task);
+        taskByKey.set(`${task}.turn-ended`, task);
         if (window) {
           metadata.set(window, project);
           taskByKey.set(window, task);
@@ -327,6 +333,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
     eligibleTasks: [...eligibleTasks],
     corrupted: false,
     needsDecisionKeys,
+    taskByWakeKey: Object.fromEntries(taskByKey),
   };
 }
 

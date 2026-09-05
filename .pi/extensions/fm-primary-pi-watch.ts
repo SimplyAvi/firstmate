@@ -621,7 +621,10 @@ export default function (pi: ExtensionAPI) {
       : /^stale:/.test(message)
         ? [message.slice("stale:".length).trim().split(/\s+/, 1)[0]].filter(Boolean)
         : [];
-    const isNeedsDecisionTrigger = triggerKeys.some((key) => scope.needsDecisionKeys.includes(key));
+    const taskIdentity = (key: string): string =>
+      scope.taskByWakeKey[key] ?? scope.taskByWakeKey[key.replace(/^fm-/, "")] ?? key;
+    const needsDecisionTasks = new Set(scope.needsDecisionKeys.map(taskIdentity));
+    const isNeedsDecisionTrigger = triggerKeys.some((key) => needsDecisionTasks.has(taskIdentity(key)));
     const eligible = !isCheckTrigger && !isNeedsDecisionTrigger && scope.eligible;
     const offer = createBranchDispatchOffer(message, scope.projects, heartbeat, eligible);
     pi.events?.emit?.(FM_BRANCH_DISPATCH_EVENT, offer);

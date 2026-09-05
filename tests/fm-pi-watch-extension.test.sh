@@ -900,9 +900,9 @@ EOF
   pass "a captain-held stale trigger ignores trailing whitespace and reaches main"
 }
 
-# An unread second-mate pending-reply escalation keeps a later routine signal
-# for the same task on main until the decision row is read.
-test_pi_unread_pending_reply_forces_later_routine_signal_to_main() {
+# An unread second-mate pending-reply escalation keeps a later stale reminder
+# under the same task's window alias on main until the decision row is read.
+test_pi_unread_pending_reply_forces_later_stale_alias_to_main() {
   local repo home plugin log stop out status
   repo="$TMP_ROOT/pi-mixed-signal-root"
   home="$TMP_ROOT/pi-mixed-signal-home"
@@ -921,7 +921,7 @@ printf 'arm=%s\n' "$$" >> "${FM_ARM_LOG:?}"
 count=$(grep -c '^arm=' "$FM_ARM_LOG")
 if [ "$count" -eq 1 ]; then
   printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
-  printf 'signal: task-a.status\n'
+  printf 'stale: fm-a (routine reminder)\n'
   exit 0
 fi
 printf 'watcher: started pid=%s (beacon fresh) recovery-generation=fixture-generation\n' "$$"
@@ -966,11 +966,11 @@ writeFileSync(`${process.env.FM_HOME}/state/.lock`, `${process.pid}\n`);
 writeFileSync(
   `${process.env.FM_HOME}/state/.wake-queue`,
   "1\t1\tsignal\ttask-a.status\tneeds-decision: task-a.status\n" +
-    "2\t2\tsignal\ttask-a.status\tsignal: task-a.status\n",
+    "2\t2\tstale\tfm-a\tstale: fm-a (routine reminder)\n",
 );
 const mod = await import(pathToFileURL(process.env.PLUGIN).href);
 mod.default(pi);
-await tool.execute("tool-call-later-routine-signal", {}, undefined, undefined, {});
+await tool.execute("tool-call-later-stale-alias", {}, undefined, undefined, {});
 for (let i = 0; i < 250 && offers.length === 0; i += 1) {
   await new Promise((resolve) => setTimeout(resolve, 10));
 }
@@ -978,19 +978,19 @@ for (let i = 0; i < 250 && !prompt; i += 1) {
   await new Promise((resolve) => setTimeout(resolve, 10));
 }
 if (offers.length !== 1 || offers[0].eligible !== false) {
-  throw new Error(`a later routine signal bypassed its unread decision: ${JSON.stringify(offers)}`);
+  throw new Error(`a later stale alias bypassed its unread decision: ${JSON.stringify(offers)}`);
 }
-if (!prompt.includes("FIRSTMATE WATCHER WAKE: signal: task-a.status")) {
-  throw new Error(`a later routine signal with an unread decision did not wake main: ${prompt}`);
+if (!prompt.includes("FIRSTMATE WATCHER WAKE: stale: fm-a")) {
+  throw new Error(`a later stale alias with an unread decision did not wake main: ${prompt}`);
 }
 writeFileSync(process.env.FM_STOP_FILE, "stop\n");
 process.exit(0);
 EOF
   )
   status=$?
-  expect_code 0 "$status" "an unread pending-reply escalation must keep a later routine signal on main: $out"
-  [ -z "$out" ] || fail "Pi unread pending-reply precedence test printed output: $out"
-  pass "an unread pending-reply escalation keeps later routine signals on main"
+  expect_code 0 "$status" "an unread pending-reply escalation must keep a later stale alias on main: $out"
+  [ -z "$out" ] || fail "Pi unread pending-reply alias test printed output: $out"
+  pass "an unread pending-reply escalation keeps later stale aliases on main"
 }
 
 # The captain's accepted rule names ONE coalesced trigger batch, not only a
@@ -3984,7 +3984,7 @@ test_pi_branch_offer_flags_heartbeat
 test_pi_heartbeat_is_not_ridden_into_main_by_a_co_present_check
 test_pi_main_only_check_classes_stay_on_main
 test_pi_captain_held_trailing_whitespace_stale_stays_on_main
-test_pi_unread_pending_reply_forces_later_routine_signal_to_main
+test_pi_unread_pending_reply_forces_later_stale_alias_to_main
 test_pi_distinct_files_mixed_batch_routes_whole_batch_to_main
 test_pi_heartbeat_is_not_ridden_into_main_by_a_co_present_needs_decision
 test_pi_heartbeat_restoration_failure_stays_on_main
