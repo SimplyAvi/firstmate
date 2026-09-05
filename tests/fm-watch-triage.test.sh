@@ -1562,6 +1562,23 @@ test_needs_decision_reconciliation_required_still_marked() {
   pass "a reconciliation-required needs-decision row's queued payload is still marked needs-decision:"
 }
 
+test_captain_held_signal_payload_marked_for_branch_exclusion() {
+  local dir state fakebin out status_file pid
+  dir=$(make_case captain-held-signal-payload); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  status_file="$state/task.status"
+  printf 'captain-held [key=route]: awaiting the captain\n' > "$status_file"
+  export FM_FAKE_CREW_STATE='state: unknown · source: none · finished worker'
+  watch_bg "$state" "$fakebin" "$out"
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "watcher did not exit for a captain-held no-verb signal"
+  grep -F "signal: $status_file" "$out" >/dev/null \
+    || fail "a captain-held no-verb signal changed its wake reason: $(cat "$out")"
+  grep -F "$(printf 'signal\ttask.status\tneeds-decision:')" "$state/.wake-queue" >/dev/null \
+    || fail "a captain-held signal was not payload-marked for branch exclusion: $(cat "$state/.wake-queue")"
+  pass "a captain-held no-verb signal is marked for main-only routing"
+}
+
 test_pending_reply_escalation_signal_payload_marked_for_branch_exclusion() {
   local dir state fakebin out status_file pid corr
   dir=$(make_case pending-reply-escalation-payload); state="$dir/state"; fakebin="$dir/fakebin"
@@ -4125,6 +4142,7 @@ test_self_announced_close_does_not_rewake_but_next_note_does
 test_actionable_signal_surfaced
 test_needs_decision_signal_payload_marked_for_branch_exclusion
 test_needs_decision_reconciliation_required_still_marked
+test_captain_held_signal_payload_marked_for_branch_exclusion
 test_pending_reply_escalation_signal_payload_marked_for_branch_exclusion
 test_ordinary_blocked_signal_payload_remains_branch_eligible
 test_routine_signal_payload_not_marked_needs_decision

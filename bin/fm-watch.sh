@@ -1242,11 +1242,11 @@ signal_files_actionable() {  # <status-file> ...
     fi
     endpoint=${record%%$'\t'*}; rest=${record#*$'\t'}; ident=${rest%%$'\t'*}
     FM_SIGNAL_SURFACE_ENDPOINTS="${FM_SIGNAL_SURFACE_ENDPOINTS}${f}"$'\t'"${endpoint}"$'\t'"${ident}"$'\n'
+    if [ "$needs_decision" -eq 1 ]; then
+      FM_SIGNAL_NEEDS_DECISION_FILES="${FM_SIGNAL_NEEDS_DECISION_FILES} ${f}"
+    fi
     if [ "$rc" -eq 0 ]; then
       found=0
-      if [ "$needs_decision" -eq 1 ]; then
-        FM_SIGNAL_NEEDS_DECISION_FILES="${FM_SIGNAL_NEEDS_DECISION_FILES} ${f}"
-      fi
     fi
   done
   return "$found"
