@@ -512,7 +512,7 @@ test_changed_mode_drops_external_sources_and_excludes_cross_file_codes() {
   telemetry="$tmp/telemetry.tsv"
   fm_lint_stub_shellcheck "$fakebin" "$log"
   diff_file="$tmp/diff.nul"
-  target="bin/fm-install-shellcheck.sh"
+  target="bin/fm-afk-launch.sh"
   fm_lint_write_diff_file "$diff_file" "$target"
 
   out=$(PATH="$fakebin:$PATH" GITHUB_ACTIONS='' CI='' FM_LINT_JOBS=1 \
@@ -530,6 +530,10 @@ test_changed_mode_drops_external_sources_and_excludes_cross_file_codes() {
     "changed-mode local lint did not disclose dropped source following"
   assert_grep $'analysis_mode\tlocal' "$telemetry" \
     "telemetry did not record local analysis mode"
+  assert_grep $'source_directives\t3' "$telemetry" \
+    "telemetry did not count the changed root's source directives"
+  assert_grep $'source_followed_directives\t0' "$telemetry" \
+    "telemetry reported followed sources in no-external-sources mode"
   pass "fm-lint.sh changed mode drops source following and excludes cross-file codes"
 }
 
