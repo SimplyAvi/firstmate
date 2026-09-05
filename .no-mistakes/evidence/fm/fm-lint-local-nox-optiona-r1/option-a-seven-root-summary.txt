@@ -1,0 +1,4 @@
+ShellCheck version: 0.11.0
+Mode: one no-external-sources, dataflow-enabled process per incident root
+Roots: 7
+cpu_seconds=1.81 worst_rss_bytes=191971328 bytes_allocated=0
