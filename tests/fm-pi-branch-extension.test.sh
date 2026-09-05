@@ -3800,6 +3800,7 @@ if (captainHeldMixed.needsDecisionKeys.join(",") !== "fm-window") {
   throw new Error(`the captain-held stale key was not marked main-owned: ${JSON.stringify(captainHeldMixed)}`);
 }
 
+writeFileSync(`${state}/task-a.status`, "captain-held [key=route]: awaiting a second captain reminder\n \n");
 writeFileSync(
   `${state}/.wake-queue`,
   [
@@ -3817,6 +3818,16 @@ if (countedStatusReads !== 1) {
 if (!repeatedCaptainHeld.eligible || repeatedCaptainHeld.eligibleSeqs.join(",") !== "3" ||
   repeatedCaptainHeld.needsDecisionKeys.join(",") !== "fm-window,fm-window") {
   throw new Error(`repeated stale reminders changed classification: ${JSON.stringify(repeatedCaptainHeld)}`);
+}
+const repeatedCaptainHeldNextScan = scopeForUnreadWake(state, false);
+if (countedStatusReads !== 1 || repeatedCaptainHeldNextScan.needsDecisionKeys.join(",") !== "fm-window,fm-window") {
+  throw new Error(`an unchanged status was not reused across scans: reads=${countedStatusReads} scope=${JSON.stringify(repeatedCaptainHeldNextScan)}`);
+}
+writeFileSync(`${state}/task-a.status`, "captain-held [key=route]: awaiting the captain\nworking: resumed after answer\n");
+const changedCaptainHeld = scopeForUnreadWake(state, false);
+if (countedStatusReads !== 2 || changedCaptainHeld.eligibleSeqs.join(",") !== "1,2,3" ||
+  changedCaptainHeld.needsDecisionKeys.length !== 0) {
+  throw new Error(`a changed status did not invalidate its cached decision: reads=${countedStatusReads} scope=${JSON.stringify(changedCaptainHeld)}`);
 }
 countedStatusPath = "";
 writeFileSync(

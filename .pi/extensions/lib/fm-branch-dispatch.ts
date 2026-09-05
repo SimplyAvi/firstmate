@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { runCommandAsync } from "./fm-async-exec.ts";
 
 // Shared wake-dispatch handshake between the Pi watcher extension (the
@@ -144,6 +144,24 @@ function statusLineNote(line: string): string {
   return match ? note.slice(match[0].length).trimStart() : note;
 }
 
+interface StaleDecisionCacheEntry {
+  version: string;
+  config: string;
+  decisionOwned: boolean;
+}
+
+const staleDecisionCache = new Map<string, StaleDecisionCacheEntry>();
+
+function statusFileVersion(path: string): string | null {
+  try {
+    const stat = statSync(path);
+    return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 function hasOpenNeedsDecision(
   lines: readonly string[],
   resolveVerb: string,
@@ -210,6 +228,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
   const reservedPrefixes = (process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES || "pending-reply-")
     .split(/\s+/)
     .filter(Boolean);
+  const decisionConfig = `${resolveVerb}\0${heldVerb}\0${reservedPrefixes.join("\0")}`;
   for (const line of rows) {
     const fields = line.split("\t");
     if (fields.length < 5 || !/^[0-9]+$/.test(fields[1])) return UNSAFE_SCOPE;
@@ -246,16 +265,34 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
       if (task) {
         const statusPath = `${state}/${task}.status`;
         if (!staleDecisionOwnership.has(statusPath)) {
+          let version: string | null;
+          try {
+            version = statusFileVersion(statusPath);
+          } catch {
+            return UNSAFE_SCOPE;
+          }
           let decisionOwned = false;
-          if (existsSync(statusPath)) {
-            let statusLines: string[];
-            try {
-              statusLines = readFileSync(statusPath, "utf8").split(/\r?\n/).filter((line) => /\S/.test(line));
-            } catch {
-              return UNSAFE_SCOPE;
+          if (version) {
+            const cached = staleDecisionCache.get(statusPath);
+            if (cached?.version === version && cached.config === decisionConfig) {
+              decisionOwned = cached.decisionOwned;
+            } else {
+              let statusLines: string[];
+              try {
+                statusLines = readFileSync(statusPath, "utf8").split(/\r?\n/).filter((line) => /\S/.test(line));
+                if (statusFileVersion(statusPath) !== version) return UNSAFE_SCOPE;
+              } catch {
+                return UNSAFE_SCOPE;
+              }
+              decisionOwned = hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb, reservedPrefixes) ||
+                statusLineVerb(statusLines.at(-1) ?? "") === heldVerb;
+              staleDecisionCache.set(statusPath, { version, config: decisionConfig, decisionOwned });
+              if (staleDecisionCache.size > 512) {
+                staleDecisionCache.delete(staleDecisionCache.keys().next().value!);
+              }
             }
-            decisionOwned = hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb, reservedPrefixes) ||
-              statusLineVerb(statusLines.at(-1) ?? "") === heldVerb;
+          } else {
+            staleDecisionCache.delete(statusPath);
           }
           staleDecisionOwnership.set(statusPath, decisionOwned);
         }
