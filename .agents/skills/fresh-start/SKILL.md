@@ -32,7 +32,8 @@ This records the remaining blockers and the exact bounded recheck rather than wa
 Use `/fresh-start when-safe recheck` after the expected condition changes, or run `/fresh-start` in a later Firstmate session to obtain a fresh inventory.
 
 The mode is report-only unless the captain explicitly selects an action mode.
-An action mode still stops at any ambiguous identity, unreadable record, unlanded worktree, active update, open captain decision, or missing completion proof.
+An action mode still stops at any ambiguous identity, unreadable record, active update, open captain decision, or missing completion proof.
+The captain may explicitly authorize parking an exact worker with unlanded work, but that bounded action must preserve the worktree and may not clean or update it.
 
 ## Safety contract
 
