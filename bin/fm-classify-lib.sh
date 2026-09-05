@@ -1563,12 +1563,16 @@ window_to_task() {
 
 # Capture the bytes of an append-only status log at or after <start-offset> under
 # one size-and-identity snapshot.
-# The record form prints `<endpoint>\t<identity>\t<events>` and returns 0 when
+# The record form produces `<endpoint>\t<identity>\t<events>` and returns 0 when
 # the span has actionable events, joining every such event in source order with
 # ` ; ` so callers report the complete captured span before committing it.
+# With optional <record-var>, it assigns that record instead of printing it; with
+# optional <needs-decision-var>, it also assigns 1 when the span newly surfaces a
+# needs-decision, captain-held declaration, or pending-reply escalation, otherwise
+# 0. This side-band classification never changes the event text.
 # It returns 1 after a successful classification with no actionable event; an
-# existing log still prints its committable endpoint and identity, while an absent
-# log is the ordinary empty case and prints no record.
+# existing log still produces its committable endpoint and identity, while an absent
+# log is the ordinary empty case and produces no record.
 # It returns 2 with no committable endpoint when an existing status object cannot
 # be classified.
 # The simpler wrapper prints only the event field, and the predicate discards the
