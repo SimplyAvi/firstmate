@@ -3773,7 +3773,7 @@ if (needsDecisionOnly.eligible || needsDecisionOnly.eligibleSeqs.length !== 0 ||
 
 // A captain-held task's bounded stale recheck is itself a decision wake. It is
 // excluded while an unrelated routine row remains independently branch-owned.
-writeFileSync(`${state}/task-a.status`, "captain-held [key=route]: awaiting the captain\n");
+writeFileSync(`${state}/task-a.status`, "captain-held [key=route]: awaiting the captain\n \t \n");
 writeFileSync(
   `${state}/.wake-queue`,
   [

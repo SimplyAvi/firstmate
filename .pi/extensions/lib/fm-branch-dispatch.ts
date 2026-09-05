@@ -242,7 +242,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
         if (existsSync(statusPath)) {
           let statusLines: string[];
           try {
-            statusLines = readFileSync(statusPath, "utf8").split(/\r?\n/).filter(Boolean);
+            statusLines = readFileSync(statusPath, "utf8").split(/\r?\n/).filter((line) => /\S/.test(line));
           } catch {
             return UNSAFE_SCOPE;
           }
