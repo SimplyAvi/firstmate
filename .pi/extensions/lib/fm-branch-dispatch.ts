@@ -144,11 +144,11 @@ function statusLineNote(line: string): string {
   return match ? note.slice(match[0].length).trimStart() : note;
 }
 
-function hasOpenNeedsDecision(lines: readonly string[]): boolean {
+function hasOpenNeedsDecision(lines: readonly string[], resolveVerb: string, heldVerb: string): boolean {
   const open = new Map<string, "needs-decision" | "blocked">();
   for (const line of lines) {
     const verb = statusLineVerb(line);
-    if (!["needs-decision", "blocked", "resolved", "captain-held"].includes(verb)) continue;
+    if (!["needs-decision", "blocked", resolveVerb, heldVerb].includes(verb)) continue;
     const key = decisionKey(line);
     if (!key) continue;
     const note = statusLineNote(line);
@@ -240,7 +240,10 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
           } catch {
             return UNSAFE_SCOPE;
           }
-          if (hasOpenNeedsDecision(statusLines) || /^captain-held(?:\s|\[|:)/.test(statusLines.at(-1) ?? "")) {
+          const resolveVerb = process.env.FM_CLASSIFY_RESOLVE_VERB || "resolved";
+          const heldVerb = process.env.FM_CLASSIFY_CAPTAIN_HELD_VERB || "captain-held";
+          if (hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb) ||
+            statusLineVerb(statusLines.at(-1) ?? "") === heldVerb) {
             needsDecisionKeys.push(key);
             continue;
           }

@@ -3802,6 +3802,27 @@ if (!openDecisionMixed.eligible || openDecisionMixed.eligibleSeqs.join(",") !== 
 if (openDecisionMixed.needsDecisionKeys.join(",") !== "fm-window") {
   throw new Error(`the open-decision stale key was not marked main-owned: ${JSON.stringify(openDecisionMixed)}`);
 }
+
+process.env.FM_CLASSIFY_RESOLVE_VERB = "answered";
+writeFileSync(
+  `${state}/task-a.status`,
+  "needs-decision [key=cleanup]: choose destructive cleanup\nanswered [key=cleanup]: remove generated files\n",
+);
+const customResolved = scopeForUnreadWake(state, false);
+if (!customResolved.eligible || customResolved.eligibleSeqs.slice().sort().join(",") !== "1,2" ||
+  customResolved.needsDecisionKeys.length !== 0) {
+  throw new Error(`a custom resolution verb left the stale decision open: ${JSON.stringify(customResolved)}`);
+}
+
+process.env.FM_CLASSIFY_CAPTAIN_HELD_VERB = "awaiting-captain";
+writeFileSync(`${state}/task-a.status`, "awaiting-captain [key=cleanup]: awaiting the captain\n");
+const customHeld = scopeForUnreadWake(state, false);
+if (!customHeld.eligible || customHeld.eligibleSeqs.join(",") !== "2" ||
+  customHeld.needsDecisionKeys.join(",") !== "fm-window") {
+  throw new Error(`a custom captain-held verb was offered to the branch: ${JSON.stringify(customHeld)}`);
+}
+delete process.env.FM_CLASSIFY_RESOLVE_VERB;
+delete process.env.FM_CLASSIFY_CAPTAIN_HELD_VERB;
 writeFileSync(`${state}/task-a.status`, "working: routine work\n");
 
 writeFileSync(
