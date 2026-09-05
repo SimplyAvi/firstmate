@@ -3714,7 +3714,17 @@ test_branch_dispatch_classifies_main_only_rows_and_writes_the_eligible_snapshot(
   LIB="$repo/.pi/extensions/lib/fm-branch-dispatch.ts" FM_HOME="$home" GRANT="$ROOT/bin/fm-wake-grant.sh" \
     node --input-type=module > "$TMP_ROOT/node-output" 2>&1 <<'EOF'
 import { pathToFileURL } from "node:url";
-import { readFileSync, writeFileSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import fs, { readFileSync, writeFileSync } from "node:fs";
+
+const originalReadFileSync = fs.readFileSync;
+let countedStatusPath = "";
+let countedStatusReads = 0;
+fs.readFileSync = function(path, ...args) {
+  if (String(path) === countedStatusPath) countedStatusReads += 1;
+  return originalReadFileSync.call(this, path, ...args);
+};
+syncBuiltinESMExports();
 
 const { activateEligibleRowsOwner, scopeForUnreadWake, writeEligibleRowsSnapshot, releaseEligibleRowsSnapshot, BRANCH_ELIGIBLE_ROWS_FILE } =
   await import(pathToFileURL(process.env.LIB).href);
@@ -3788,6 +3798,33 @@ if (!captainHeldMixed.eligible || captainHeldMixed.eligibleSeqs.join(",") !== "2
 if (captainHeldMixed.needsDecisionKeys.join(",") !== "fm-window") {
   throw new Error(`the captain-held stale key was not marked main-owned: ${JSON.stringify(captainHeldMixed)}`);
 }
+
+writeFileSync(
+  `${state}/.wake-queue`,
+  [
+    "1\t1\tstale\tfm-window\tstale: fm-window (first reminder)",
+    "1\t2\tstale\tfm-window\tstale: fm-window (second reminder)",
+    "1\t3\tsignal\ttask-a.status\tsignal: routine follow-up",
+  ].join("\n"),
+);
+countedStatusPath = `${state}/task-a.status`;
+countedStatusReads = 0;
+const repeatedCaptainHeld = scopeForUnreadWake(state, false);
+if (countedStatusReads !== 1) {
+  throw new Error(`one status was read ${countedStatusReads} times for repeated stale rows`);
+}
+if (!repeatedCaptainHeld.eligible || repeatedCaptainHeld.eligibleSeqs.join(",") !== "3" ||
+  repeatedCaptainHeld.needsDecisionKeys.join(",") !== "fm-window,fm-window") {
+  throw new Error(`repeated stale reminders changed classification: ${JSON.stringify(repeatedCaptainHeld)}`);
+}
+countedStatusPath = "";
+writeFileSync(
+  `${state}/.wake-queue`,
+  [
+    "1\t1\tstale\tfm-window\tstale: fm-window (awaiting the captain)",
+    "1\t2\tsignal\ttask-a.status\tsignal: routine follow-up",
+  ].join("\n"),
+);
 
 // A later unrelated status does not mask a still-open durable decision. The
 // stale row remains main-owned while the routine signal stays branch-owned.

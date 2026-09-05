@@ -204,6 +204,12 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
   const eligibleSeqs: string[] = [];
   const eligibleTasks = new Set<string>();
   const needsDecisionKeys: string[] = [];
+  const staleDecisionOwnership = new Map<string, boolean>();
+  const resolveVerb = process.env.FM_CLASSIFY_RESOLVE_VERB || "resolved";
+  const heldVerb = process.env.FM_CLASSIFY_CAPTAIN_HELD_VERB || "captain-held";
+  const reservedPrefixes = (process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES || "pending-reply-")
+    .split(/\s+/)
+    .filter(Boolean);
   for (const line of rows) {
     const fields = line.split("\t");
     if (fields.length < 5 || !/^[0-9]+$/.test(fields[1])) return UNSAFE_SCOPE;
@@ -239,23 +245,23 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
       project = metadata.get(key) ?? metadata.get(key.replace(/^fm-/, "")) ?? "";
       if (task) {
         const statusPath = `${state}/${task}.status`;
-        if (existsSync(statusPath)) {
-          let statusLines: string[];
-          try {
-            statusLines = readFileSync(statusPath, "utf8").split(/\r?\n/).filter((line) => /\S/.test(line));
-          } catch {
-            return UNSAFE_SCOPE;
+        if (!staleDecisionOwnership.has(statusPath)) {
+          let decisionOwned = false;
+          if (existsSync(statusPath)) {
+            let statusLines: string[];
+            try {
+              statusLines = readFileSync(statusPath, "utf8").split(/\r?\n/).filter((line) => /\S/.test(line));
+            } catch {
+              return UNSAFE_SCOPE;
+            }
+            decisionOwned = hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb, reservedPrefixes) ||
+              statusLineVerb(statusLines.at(-1) ?? "") === heldVerb;
           }
-          const resolveVerb = process.env.FM_CLASSIFY_RESOLVE_VERB || "resolved";
-          const heldVerb = process.env.FM_CLASSIFY_CAPTAIN_HELD_VERB || "captain-held";
-          const reservedPrefixes = (process.env.FM_CLASSIFY_RESERVED_KEY_PREFIXES || "pending-reply-")
-            .split(/\s+/)
-            .filter(Boolean);
-          if (hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb, reservedPrefixes) ||
-            statusLineVerb(statusLines.at(-1) ?? "") === heldVerb) {
-            needsDecisionKeys.push(key);
-            continue;
-          }
+          staleDecisionOwnership.set(statusPath, decisionOwned);
+        }
+        if (staleDecisionOwnership.get(statusPath)) {
+          needsDecisionKeys.push(key);
+          continue;
         }
       }
     } else {
