@@ -3788,6 +3788,20 @@ if (!captainHeldMixed.eligible || captainHeldMixed.eligibleSeqs.join(",") !== "2
 if (captainHeldMixed.needsDecisionKeys.join(",") !== "fm-window") {
   throw new Error(`the captain-held stale key was not marked main-owned: ${JSON.stringify(captainHeldMixed)}`);
 }
+
+// A later unrelated status does not mask a still-open durable decision. The
+// stale row remains main-owned while the routine signal stays branch-owned.
+writeFileSync(
+  `${state}/task-a.status`,
+  "needs-decision [key=cleanup]: choose destructive cleanup\nworking: routine follow-up\n",
+);
+const openDecisionMixed = scopeForUnreadWake(state, false);
+if (!openDecisionMixed.eligible || openDecisionMixed.eligibleSeqs.join(",") !== "2") {
+  throw new Error(`an open-decision stale row was offered to the branch: ${JSON.stringify(openDecisionMixed)}`);
+}
+if (openDecisionMixed.needsDecisionKeys.join(",") !== "fm-window") {
+  throw new Error(`the open-decision stale key was not marked main-owned: ${JSON.stringify(openDecisionMixed)}`);
+}
 writeFileSync(`${state}/task-a.status`, "working: routine work\n");
 
 writeFileSync(

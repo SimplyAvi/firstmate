@@ -57,9 +57,10 @@ export interface UnreadWakeScope {
   /**
    * The exact "key" field of every decision-owned signal or stale row this
    * scan excluded. Signal rows are marked by bin/fm-watch.sh; stale rows are
-   * decision-owned when their task's current declaration is captain-held.
-   * fm-primary-pi-watch.ts cross-references these keys against the current
-   * trigger so its entire coalesced batch is forced to main.
+   * decision-owned when their task has an open needs-decision or its current
+   * declaration is captain-held. fm-primary-pi-watch.ts cross-references these
+   * keys against the current trigger so its entire coalesced batch is forced
+   * to main.
    */
   needsDecisionKeys: string[];
 }
@@ -97,10 +98,10 @@ const UNSAFE_SCOPE: UnreadWakeScope = {
 // starves by being left behind.
 //
 // A signal row whose payload is "needs-decision:"-prefixed, or a stale row
-// for a task whose current declaration is captain-held, gets the identical
-// treatment: excluded from eligibleSeqs, never a scan veto, and forced to main
-// on its own triggering close (fm-primary-pi-watch.ts's offerWakeToBranch).
-// Heartbeat handling remains independent.
+// for a task with an open needs-decision or a current captain-held declaration,
+// gets the identical treatment: excluded from eligibleSeqs, never a scan veto,
+// and forced to main on its own triggering close (fm-primary-pi-watch.ts's
+// offerWakeToBranch). Heartbeat handling remains independent.
 //
 // That applies to a heartbeat review too, and it is the whole point: a
 // heartbeat used to be deferred to main merely because some unrelated check
@@ -118,6 +119,46 @@ const UNSAFE_SCOPE: UnreadWakeScope = {
 // this repo's fm_wake_append could never have produced (an unknown kind, or a
 // line that fails the structural tab-field check) also still vetoes the whole
 // scan - that is queue corruption, not an everyday mixed queue.
+function statusLineVerb(line: string): string {
+  const beforeColon = line.split(":", 1)[0].split("[", 1)[0].trim();
+  const words = beforeColon.split(/\s+/);
+  if (!words.some((word) => word.startsWith("corr="))) return beforeColon;
+  return words.filter((word, index) => index === 0 || !/^corr=[0-9a-f]{16}$/i.test(word)).join(" ");
+}
+
+function decisionKey(line: string): string | null {
+  const colon = line.indexOf(":");
+  const beforeColon = colon < 0 ? line : line.slice(0, colon);
+  const beforeMatch = beforeColon.match(/\[key=([^\]]*)\]/);
+  const noteMatch = beforeMatch || colon < 0 ? null : line.slice(colon + 1).trimStart().match(/^\[key=([^\]]*)\]/);
+  const key = (beforeMatch ?? noteMatch)?.[1] ?? "default";
+  return /^[A-Za-z0-9._-]+$/.test(key) ? key : null;
+}
+
+function statusLineNote(line: string): string {
+  const colon = line.indexOf(":");
+  if (colon < 0) return line;
+  const note = line.slice(colon + 1).trimStart();
+  if (/\[key=[^\]]*\]/.test(line.slice(0, colon))) return note;
+  const match = note.match(/^\[key=([A-Za-z0-9._-]+)\]/);
+  return match ? note.slice(match[0].length).trimStart() : note;
+}
+
+function hasOpenNeedsDecision(lines: readonly string[]): boolean {
+  const open = new Map<string, "needs-decision" | "blocked">();
+  for (const line of lines) {
+    const verb = statusLineVerb(line);
+    if (!["needs-decision", "blocked", "resolved", "captain-held"].includes(verb)) continue;
+    const key = decisionKey(line);
+    if (!key) continue;
+    const note = statusLineNote(line);
+    if (key.startsWith("pending-reply-") && !/^pending-reply-.*:/.test(note)) continue;
+    if (verb === "needs-decision" || verb === "blocked") open.set(key, verb);
+    else open.delete(key);
+  }
+  return [...open.values()].includes("needs-decision");
+}
+
 export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWakeScope {
   let queue = "";
   try {
@@ -199,7 +240,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
           } catch {
             return UNSAFE_SCOPE;
           }
-          if (/^captain-held(?:\s|\[|:)/.test(statusLines.at(-1) ?? "")) {
+          if (hasOpenNeedsDecision(statusLines) || /^captain-held(?:\s|\[|:)/.test(statusLines.at(-1) ?? "")) {
             needsDecisionKeys.push(key);
             continue;
           }
