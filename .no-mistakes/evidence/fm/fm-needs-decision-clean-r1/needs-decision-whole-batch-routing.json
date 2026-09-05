@@ -1,0 +1,17 @@
+{
+  "scenario": "coalesced signal for task-a (needs decision) plus task-b (routine)",
+  "queuedRows": [
+    "needs-decision: task-a.status",
+    "signal: task-b.status"
+  ],
+  "supervisionBranchOffer": {
+    "eligible": false,
+    "message": "signal: task-a.status task-b.status",
+    "projects": [
+      "/Users/kunchen/.no-mistakes/worktrees/016d88035d58/01M1R51AGSZ8VZ3NY8XG9T9QXD/.test-evidence-tmp/home/projects/approved"
+    ]
+  },
+  "mainSessionWake": "⁣FIRSTMATE_OP: v1 watcher: FIRSTMATE WATCHER WAKE: signal: task-a.status task-b.status\n\nRun bin/fm-wake-drain.sh first and handle the queued wake. Watcher continuity is extension-owned.",
+  "observedWholeBatch": true,
+  "result": "PASS"
+}
