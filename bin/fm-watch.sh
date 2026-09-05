@@ -1246,7 +1246,7 @@ signal_files_actionable() {  # <status-file> ...
     if [ "$needs_decision" -eq 1 ]; then
       FM_SIGNAL_NEEDS_DECISION_FILES="${FM_SIGNAL_NEEDS_DECISION_FILES} ${f}"
     fi
-    if [ "$rc" -eq 0 ]; then
+    if [ "$rc" -eq 0 ] || [ "$needs_decision" -eq 1 ]; then
       found=0
     fi
   done

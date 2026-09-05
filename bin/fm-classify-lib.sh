@@ -1660,8 +1660,10 @@ status_span_first_actionable_record() {  # <status-file> <start-offset> [record-
     line_number=$((line_number + 1))
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
     if status_is_captain_held "$line"; then
+      # A transfer closes the status-log decision and remains non-actionable to
+      # stale classification. The side-band marker lets signal routing surface
+      # the captain-owned hold without changing that established stale verdict.
       _fm_span_needs_decision=1
-      rc=0
       continue
     fi
     status_is_captain_relevant "$line" || continue
