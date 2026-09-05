@@ -533,6 +533,32 @@ test_changed_mode_drops_external_sources_and_excludes_cross_file_codes() {
   pass "fm-lint.sh changed mode drops source following and excludes cross-file codes"
 }
 
+test_changed_mode_invokes_shellcheck_once_per_root() {
+  local tmp fakebin log flag_log diff_file out first second invocation_count
+  tmp=$(fm_test_tmproot fm-lint-local-per-root)
+  fakebin=$(fm_fakebin "$tmp")
+  fm_lint_stub_git "$fakebin"
+  log="$tmp/shellcheck.log"
+  flag_log="$tmp/flags.log"
+  fm_lint_stub_shellcheck "$fakebin" "$log"
+  diff_file="$tmp/diff.nul"
+  first="bin/fm-install-shellcheck.sh"
+  second="bin/fm-lint-workflows.sh"
+  fm_lint_write_diff_file "$diff_file" "$first" "$second"
+
+  out=$(PATH="$fakebin:$PATH" GITHUB_ACTIONS='' CI='' FM_LINT_JOBS=1 \
+    FM_TEST_GIT_BRANCH=feature FM_TEST_GIT_DIFF_FILE="$diff_file" \
+    FM_TEST_FLAG_LOG="$flag_log" "$LINT" 2>&1) \
+    || fail "changed-mode per-root lint failed"$'\n'"$out"
+  [ "$(LC_ALL=C sort "$log")" = "$first"$'\n'"$second" ] \
+    || fail "changed-mode lint did not analyze both changed roots"$'\n'"logged: $(cat "$log")"
+  invocation_count=$(grep -c '^external-sources=' "$flag_log" || true)
+  [ "$invocation_count" -eq 2 ] \
+    || fail "changed-mode lint used $invocation_count ShellCheck calls for two roots"
+  fm_lint_assert_flag_log "$flag_log" no "SC1091,SC2034,SC2153,SC2329"
+  pass "fm-lint.sh changed mode invokes ShellCheck once per root"
+}
+
 test_ci_keeps_external_sources_without_local_exclusions() {
   local tmp fakebin log flag_log mode_log fixture out
   tmp=$(fm_test_tmproot fm-lint-ci-follow)
@@ -1286,6 +1312,7 @@ test_explicit_path_bypasses_changed_logic
 test_zero_changed_files_exits_clean
 test_list_files_respects_changed_mode
 test_changed_mode_drops_external_sources_and_excludes_cross_file_codes
+test_changed_mode_invokes_shellcheck_once_per_root
 test_ci_keeps_external_sources_without_local_exclusions
 test_main_branch_keeps_external_sources
 test_merge_base_less_keeps_external_sources
