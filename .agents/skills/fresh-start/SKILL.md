@@ -171,9 +171,27 @@ Herdr update is server-wide for the selected installation, so it requires a fres
 Do not invoke Herdr server lifecycle or update operations through a lab helper, and never use the lab session as a proxy for the captain's live `default` session.
 Do not use `--handoff` unless the captain explicitly selects it after the current help and active-session impact are understood.
 
-For any validation experiment, use `bin/fm-herdr-lab.sh` with a generated non-`default` `fm-lab-*` session and its before/after default-session tripwire.
-Every lab Herdr call must go through that helper, and lab teardown must go through that helper.
-The live captain fleet remains out of scope for lab cleanup.
+For any validation experiment, establish the lab contract before provisioning:
+
+```sh
+HERDR_LAB_HELPER=/Users/avitoshtotaram/github/kunchenguid/firstmate/bin/fm-herdr-lab.sh
+HERDR_LAB_SESSION=$("$HERDR_LAB_HELPER" name fresh-start-skill-v1)
+export HERDR_LAB_HELPER HERDR_LAB_SESSION
+fresh_start_lab_teardown() {
+  local status=$?
+  "$HERDR_LAB_HELPER" teardown "$HERDR_LAB_SESSION" || status=$?
+  trap - EXIT
+  exit "$status"
+}
+trap fresh_start_lab_teardown EXIT
+"$HERDR_LAB_HELPER" provision "$HERDR_LAB_SESSION"
+```
+
+Use only the generated non-`default` `fm-lab-*` session.
+Route every task-specific non-lifecycle Herdr command through `"$HERDR_LAB_HELPER" run "$HERDR_LAB_SESSION" ...` so the helper appends the explicit trailing `--session`.
+Use the helper for provisioning and teardown, never direct Herdr server or session lifecycle commands.
+Do not use direct session deletion, direct session stopping, or ambient `HERDR_SESSION` isolation.
+The helper's before/after default-session tripwire must remain intact, and the live captain fleet remains out of scope for lab cleanup.
 
 If a vendor update cannot complete without stopping an unknown or active area, do not force it.
 Record the version, affected area, reason it is unsafe now, and the exact update command to recheck later.
