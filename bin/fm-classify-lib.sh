@@ -1661,6 +1661,7 @@ status_span_first_actionable_record() {  # <status-file> <start-offset> [record-
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
     if status_is_captain_held "$line"; then
       _fm_span_needs_decision=1
+      rc=0
       continue
     fi
     status_is_captain_relevant "$line" || continue
